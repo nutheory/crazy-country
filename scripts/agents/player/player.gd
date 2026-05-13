@@ -5,6 +5,8 @@ extends CharacterBody3D
 @onready var idle_state = $LimboHSM/Idle
 @onready var move_state = $LimboHSM/Move
 
+@onready var sprite = $Sprite3D
+
 const SPEED = 5.0
 const JUMP_VELOCITY = 8
 
@@ -21,6 +23,10 @@ func _initialize_state_machine() -> void:
 	state_machine.initial_state = idle_state
 	state_machine.initialize(self)
 	state_machine.set_active(true)
+	
+func update_sprite_direction():
+	if movement_input.x != 0:
+		sprite.flip_h = movement_input.x < 0
 	
 func apply_movement(delta) -> void:
 	velocity.x = movement_input.x * SPEED

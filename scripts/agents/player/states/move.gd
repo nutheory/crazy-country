@@ -12,6 +12,7 @@ func _ready() -> void:
 
 func _update(delta: float) -> void:
 	agent.apply_movement(delta)
+	agent.update_sprite_direction()
 	
 	if agent.movement_input == Vector2.ZERO:
 		get_root().dispatch("to_idle")
