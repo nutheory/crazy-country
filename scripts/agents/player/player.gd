@@ -16,7 +16,10 @@ extends CharacterBody3D
 @onready var sprite = $Sprite3D
 
 const SPEED = 5.0
-const JUMP_VELOCITY = 8
+const RUN_SPEED_MULTIPLIER = 2.0
+const CHARGE_SPEED_MULTIPLIER = 2.6
+const JUMP_VELOCITY = 8.0
+const ATTACK_ANIMATIONS: Array[StringName] = [&"Punch", &"Foot", &"Nuts", &"Headbutt"]
 
 var movement_input: Vector2 = Vector2.ZERO
 var current_direction: String = "right"
@@ -28,6 +31,8 @@ func _ready():
 func _initialize_state_machine() -> void:
 	state_machine.add_transition(idle_state, turn_state, &"dir_changed")
 	state_machine.add_transition(walk_state, turn_state, &"dir_changed")
+	state_machine.add_transition(run_state, turn_state, &"dir_changed")
+	state_machine.add_transition(charge_state, turn_state, &"dir_changed")
 
 	state_machine.add_transition(idle_state, walk_state, &"turn_done")
 	state_machine.add_transition(walk_state, idle_state, &"turn_to_idle")
@@ -50,7 +55,7 @@ func _initialize_state_machine() -> void:
 	state_machine.initialize(self )
 	state_machine.set_active(true)
 	
-func check_run_input() -> void:
+func check_move_mode_input() -> void:
 	if is_on_floor() and Input.is_action_pressed("run"):
 		move_type = "run"
 		state_machine.dispatch("to_run")
@@ -70,16 +75,22 @@ func check_nut_tap_input() -> void:
 		state_machine.dispatch("to_nut_tap")
 
 func check_punch_input() -> void:
-	if is_on_floor() and Input.is_action_just_pressed("kick"):
-		state_machine.dispatch("to_kick")
-
-func check_kick_input() -> void:
 	if is_on_floor() and Input.is_action_just_pressed("punch"):
 		state_machine.dispatch("to_punch")
 
+func check_kick_input() -> void:
+	if is_on_floor() and Input.is_action_just_pressed("kick"):
+		state_machine.dispatch("to_kick")
+
 func check_jump_input() -> void:
-	if Input.is_action_just_pressed("jump"):
+	if is_on_floor() and Input.is_action_just_pressed("jump"):
 		state_machine.dispatch("to_jump")
+
+func dispatch_landing_state() -> void:
+	if movement_input == Vector2.ZERO:
+		state_machine.dispatch("to_idle")
+	else:
+		check_move_mode_input()
 
 func wants_to_turn() -> bool:
 	if movement_input.x > 0 and current_direction == "left":
@@ -87,14 +98,24 @@ func wants_to_turn() -> bool:
 	if movement_input.x < 0 and current_direction == "right":
 		return true
 	return false
+
+func face_movement_direction() -> void:
+	if movement_input.x > 0:
+		current_direction = "right"
+	elif movement_input.x < 0:
+		current_direction = "left"
+	else:
+		return
+
+	sprite.flip_h = (current_direction == "left")
 	
 func apply_movement(_delta) -> void:
 	if move_type == "run":
-		velocity.x = movement_input.x * (SPEED * 2)
-		velocity.z = movement_input.y * (SPEED * 2)
+		velocity.x = movement_input.x * (SPEED * RUN_SPEED_MULTIPLIER)
+		velocity.z = movement_input.y * (SPEED * RUN_SPEED_MULTIPLIER)
 	elif move_type == "charge":
-		velocity.x = movement_input.x * (SPEED * 2.6)
-		velocity.z = movement_input.y * (SPEED * 2.6)
+		velocity.x = movement_input.x * (SPEED * CHARGE_SPEED_MULTIPLIER)
+		velocity.z = movement_input.y * (SPEED * CHARGE_SPEED_MULTIPLIER)
 	else:
 		velocity.x = movement_input.x * SPEED
 		velocity.z = movement_input.y * SPEED
@@ -103,10 +124,6 @@ func _physics_process(delta: float) -> void:
 	if not is_on_floor():
 		velocity += get_gravity() * delta
 
-	# Handle jump.
-	# if Input.is_action_just_pressed("ui_accept") and is_on_floor():
-		#velocity.y = JUMP_VELOCITY
-
 	movement_input = Input.get_vector("left", "right", "up", "down")
 
 
@@ -114,4 +131,5 @@ func _physics_process(delta: float) -> void:
 
 
 func _on_animation_player_animation_finished(anim_name: StringName) -> void:
-	state_machine.dispatch("to_idle")
+	if anim_name in ATTACK_ANIMATIONS:
+		state_machine.dispatch("to_idle")
