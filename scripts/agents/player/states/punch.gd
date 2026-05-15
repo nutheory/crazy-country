@@ -9,6 +9,7 @@ func _enter() -> void:
 	agent.velocity.z = 0.0
 	
 	animation_player.play(animation)
+	agent.start_attack(1)
 
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.

@@ -14,19 +14,31 @@ extends CharacterBody3D
 @onready var headbutt_state = $LimboHSM/Headbutt
 
 @onready var sprite = $Sprite3D
+@onready var attack_hitbox: Area3D = $AttackHitbox
+@onready var attack_hitbox_shape: CollisionShape3D = $AttackHitbox/CollisionShape3D
 
 const SPEED = 5.0
 const RUN_SPEED_MULTIPLIER = 2.0
 const CHARGE_SPEED_MULTIPLIER = 2.6
 const JUMP_VELOCITY = 8.0
+const ATTACK_HITBOX_ACTIVE_TIME = 0.18
 const ATTACK_ANIMATIONS: Array[StringName] = [&"Punch", &"Foot", &"Nuts", &"Headbutt"]
 
 var movement_input: Vector2 = Vector2.ZERO
 var current_direction: String = "right"
 var move_type: String = "walk"
+var current_attack_damage := 1
+var current_attack_id := 0
+var attack_targets_hit: Array[Node] = []
 
-func _ready():
+func _ready() -> void:
+	_initialize_attack_hitbox()
 	_initialize_state_machine()
+
+func _initialize_attack_hitbox() -> void:
+	attack_hitbox.monitoring = false
+	attack_hitbox_shape.disabled = true
+	attack_hitbox.area_entered.connect(_on_attack_hitbox_area_entered)
 	
 func _initialize_state_machine() -> void:
 	state_machine.add_transition(idle_state, turn_state, &"dir_changed")
@@ -108,6 +120,65 @@ func face_movement_direction() -> void:
 		return
 
 	sprite.flip_h = (current_direction == "left")
+
+func start_attack(damage: int) -> void:
+	current_attack_id += 1
+	current_attack_damage = damage
+	attack_targets_hit.clear()
+	_position_attack_hitbox()
+	_set_attack_hitbox_active(true)
+	_check_current_attack_overlaps(current_attack_id)
+	_stop_current_attack_after(current_attack_id, ATTACK_HITBOX_ACTIVE_TIME)
+
+func _position_attack_hitbox() -> void:
+	var facing_offset := 1.35
+
+	if current_direction == "left":
+		facing_offset = -1.35
+
+	attack_hitbox.position = Vector3(sprite.position.x + facing_offset, 0.3, sprite.position.z + 0.1)
+
+func _set_attack_hitbox_active(is_active: bool) -> void:
+	attack_hitbox.monitoring = is_active
+	attack_hitbox_shape.disabled = not is_active
+
+func _check_current_attack_overlaps(attack_id: int) -> void:
+	await get_tree().physics_frame
+
+	if attack_id != current_attack_id:
+		return
+
+	for area in attack_hitbox.get_overlapping_areas():
+		_try_hit_area(area)
+
+func _stop_current_attack_after(attack_id: int, active_time: float) -> void:
+	await get_tree().create_timer(active_time).timeout
+
+	if attack_id == current_attack_id:
+		_set_attack_hitbox_active(false)
+
+func _on_attack_hitbox_area_entered(area: Area3D) -> void:
+	_try_hit_area(area)
+
+func _try_hit_area(area: Area3D) -> void:
+	var receiver := _find_damage_receiver(area)
+
+	if receiver == null or receiver in attack_targets_hit:
+		return
+
+	attack_targets_hit.append(receiver)
+	receiver.take_hit(current_attack_damage, attack_hitbox.global_position)
+
+func _find_damage_receiver(area: Area3D) -> Node:
+	var current_node: Node = area
+
+	while current_node:
+		if current_node != self and current_node.has_method("take_hit"):
+			return current_node
+
+		current_node = current_node.get_parent()
+
+	return null
 	
 func apply_movement(_delta) -> void:
 	if move_type == "run":

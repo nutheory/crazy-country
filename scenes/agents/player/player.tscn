@@ -616,6 +616,9 @@ _data = {
 radius = 0.94189453
 height = 4.0117273
 
+[sub_resource type="BoxShape3D" id="BoxShape3D_attack"]
+size = Vector3(1.8, 2.4, 1.4)
+
 [node name="Player" type="CharacterBody3D" unique_id=1217183391 node_paths=PackedStringArray("state_machine")]
 script = ExtResource("1_afts6")
 state_machine = NodePath("LimboHSM")
@@ -636,6 +639,14 @@ transform = Transform3D(1, 0, 0, 0, 0.99461997, 0.1035911, 0, -0.1035911, 0.9946
 [node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=2046123883]
 transform = Transform3D(1, -0.00018282238, 5.820373e-05, 0.00018282238, 1, -6.8567074e-06, -5.820373e-05, 6.8567074e-06, 1, -3.733603, 0.14604473, -3.4426417)
 shape = SubResource("CapsuleShape3D_eje3e")
+
+[node name="AttackHitbox" type="Area3D" parent="."]
+collision_layer = 0
+monitoring = false
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="AttackHitbox"]
+shape = SubResource("BoxShape3D_attack")
+disabled = true
 
 [node name="LimboHSM" type="LimboHSM" parent="." unique_id=1374095747]
 

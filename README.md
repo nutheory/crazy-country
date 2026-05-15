@@ -32,4 +32,6 @@ godot --path .
 - `scenes/agents/player/player.tscn`: the player nodes and animation library.
 - `scripts/agents/player/player.gd`: shared player movement, input checks, and state-machine wiring.
 - `scripts/agents/player/states/*.gd`: one file per player state.
+- `scenes/props/target_dummy.tscn`: the target dummy placed in the arena.
+- `scripts/props/target_dummy.gd`: dummy health, hit flash, knockback, and reset behavior.
 - `docs/enhancement-notes.md`: a short explanation of the first enhancement pass.
