@@ -9,9 +9,9 @@ func _enter() -> void:
 	agent.velocity.z = 0.0
 	
 	animation_player.play(animation)
-	agent.start_attack(1)
+	agent.start_attack(1, &"nut_tap")
 
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
-func _update(delta: float) -> void:
-	pass
+func _update(_delta: float) -> void:
+	agent.check_attack_chain_input(&"nut_tap")

@@ -14,6 +14,7 @@ extends CharacterBody3D
 @onready var headbutt_state = $LimboHSM/Headbutt
 
 @onready var sprite = $Sprite3D
+@onready var combo_callout: Label3D = $ComboCallout
 @onready var attack_hitbox: Area3D = $AttackHitbox
 @onready var attack_hitbox_shape: CollisionShape3D = $AttackHitbox/CollisionShape3D
 
@@ -22,7 +23,48 @@ const RUN_SPEED_MULTIPLIER = 2.0
 const CHARGE_SPEED_MULTIPLIER = 2.6
 const JUMP_VELOCITY = 8.0
 const ATTACK_HITBOX_ACTIVE_TIME = 0.18
+const COMBO_INPUT_WINDOW = 2.2
+const COMBO_CALLOUT_TIME = 1.8
+const COMBO_HISTORY_LIMIT = 4
 const ATTACK_ANIMATIONS: Array[StringName] = [&"Punch", &"Foot", &"Nuts", &"Headbutt"]
+const COMBO_DEFINITIONS = [
+	{
+		"id": &"clipboard_clobber",
+		"sequence": [&"punch", &"kick"],
+		"blurbs": [
+			"Form 12-B says eat this!",
+			"Stamp it and slam it!",
+			"Training facility certified!"
+		],
+	},
+	{
+		"id": &"headfirst_grant",
+		"sequence": [&"kick", &"headbutt"],
+		"blurbs": [
+			"Physics called in sick!",
+			"Head-first scholarship!",
+			"Helmet optional!"
+		],
+	},
+	{
+		"id": &"claire_protocol",
+		"sequence": [&"punch", &"nut_tap", &"headbutt"],
+		"blurbs": [
+			"Claire protocol: unacceptable!",
+			"Abduction lab approved!",
+			"Southern science, baby!"
+		],
+	},
+	{
+		"id": &"facility_recalibration",
+		"sequence": [&"nut_tap", &"kick", &"punch"],
+		"blurbs": [
+			"Recalibrate the interns!",
+			"This is lab work!",
+			"Put that in the clipboard!"
+		],
+	},
+]
 
 var movement_input: Vector2 = Vector2.ZERO
 var current_direction: String = "right"
@@ -30,8 +72,15 @@ var move_type: String = "walk"
 var current_attack_damage := 1
 var current_attack_id := 0
 var attack_targets_hit: Array[Node] = []
+var combo_history: Array[StringName] = []
+var last_combo_step_msec := 0
+var attack_input_lock_frame := -1
+var combo_callout_id := 0
+var combo_rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
+	combo_rng.randomize()
+	combo_callout.visible = false
 	_initialize_attack_hitbox()
 	_initialize_state_machine()
 
@@ -78,25 +127,55 @@ func check_move_mode_input() -> void:
 		move_type = "walk"
 		state_machine.dispatch("to_walk")
 	
-func check_headbutt_input() -> void:
-	if is_on_floor() and Input.is_action_just_pressed("headbutt"):
+func check_headbutt_input() -> bool:
+	if _can_start_ground_attack() and Input.is_action_just_pressed("headbutt"):
 		state_machine.dispatch("to_headbutt")
+		return true
+	return false
 
-func check_nut_tap_input() -> void:
-	if is_on_floor() and Input.is_action_just_pressed("nut_tap"):
+func check_nut_tap_input() -> bool:
+	if _can_start_ground_attack() and Input.is_action_just_pressed("nut_tap"):
 		state_machine.dispatch("to_nut_tap")
+		return true
+	return false
 
-func check_punch_input() -> void:
-	if is_on_floor() and Input.is_action_just_pressed("punch"):
+func check_punch_input() -> bool:
+	if _can_start_ground_attack() and Input.is_action_just_pressed("punch"):
 		state_machine.dispatch("to_punch")
+		return true
+	return false
 
-func check_kick_input() -> void:
-	if is_on_floor() and Input.is_action_just_pressed("kick"):
+func check_kick_input() -> bool:
+	if _can_start_ground_attack() and Input.is_action_just_pressed("kick"):
 		state_machine.dispatch("to_kick")
+		return true
+	return false
+
+func check_attack_chain_input(current_step: StringName) -> bool:
+	if not _can_start_ground_attack():
+		return false
+
+	if current_step != &"kick" and Input.is_action_just_pressed("kick"):
+		state_machine.dispatch("to_kick")
+		return true
+	if current_step != &"punch" and Input.is_action_just_pressed("punch"):
+		state_machine.dispatch("to_punch")
+		return true
+	if current_step != &"nut_tap" and Input.is_action_just_pressed("nut_tap"):
+		state_machine.dispatch("to_nut_tap")
+		return true
+	if current_step != &"headbutt" and Input.is_action_just_pressed("headbutt"):
+		state_machine.dispatch("to_headbutt")
+		return true
+
+	return false
 
 func check_jump_input() -> void:
 	if is_on_floor() and Input.is_action_just_pressed("jump"):
 		state_machine.dispatch("to_jump")
+
+func _can_start_ground_attack() -> bool:
+	return is_on_floor() and Engine.get_physics_frames() != attack_input_lock_frame
 
 func dispatch_landing_state() -> void:
 	if movement_input == Vector2.ZERO:
@@ -121,7 +200,10 @@ func face_movement_direction() -> void:
 
 	sprite.flip_h = (current_direction == "left")
 
-func start_attack(damage: int) -> void:
+func start_attack(damage: int, combo_step: StringName = &"") -> void:
+	if combo_step != &"":
+		record_combo_step(combo_step)
+
 	current_attack_id += 1
 	current_attack_damage = damage
 	attack_targets_hit.clear()
@@ -129,6 +211,68 @@ func start_attack(damage: int) -> void:
 	_set_attack_hitbox_active(true)
 	_check_current_attack_overlaps(current_attack_id)
 	_stop_current_attack_after(current_attack_id, ATTACK_HITBOX_ACTIVE_TIME)
+
+func record_combo_step(step: StringName) -> void:
+	var now := Time.get_ticks_msec()
+	var seconds_since_last_step := float(now - last_combo_step_msec) / 1000.0
+
+	attack_input_lock_frame = Engine.get_physics_frames()
+
+	if last_combo_step_msec > 0 and seconds_since_last_step > COMBO_INPUT_WINDOW:
+		combo_history.clear()
+
+	last_combo_step_msec = now
+	combo_history.append(step)
+
+	while combo_history.size() > COMBO_HISTORY_LIMIT:
+		combo_history.pop_front()
+
+	var combo := _find_completed_combo()
+
+	if not combo.is_empty():
+		_show_combo_callout(combo)
+
+func _find_completed_combo() -> Dictionary:
+	var best_combo := {}
+	var best_sequence_size := 0
+
+	for combo in COMBO_DEFINITIONS:
+		var sequence: Array = combo["sequence"]
+
+		if sequence.size() > best_sequence_size and _combo_history_ends_with(sequence):
+			best_combo = combo
+			best_sequence_size = sequence.size()
+
+	return best_combo
+
+func _combo_history_ends_with(sequence: Array) -> bool:
+	if sequence.size() > combo_history.size():
+		return false
+
+	var history_start := combo_history.size() - sequence.size()
+
+	for index in range(sequence.size()):
+		if combo_history[history_start + index] != sequence[index]:
+			return false
+
+	return true
+
+func _show_combo_callout(combo: Dictionary) -> void:
+	var blurbs: Array = combo["blurbs"]
+
+	if blurbs.is_empty():
+		return
+
+	combo_callout_id += 1
+	combo_callout.text = str(blurbs[combo_rng.randi_range(0, blurbs.size() - 1)])
+	combo_callout.visible = true
+	_hide_combo_callout_after(combo_callout_id, COMBO_CALLOUT_TIME)
+
+func _hide_combo_callout_after(callout_id: int, delay: float) -> void:
+	await get_tree().create_timer(delay).timeout
+
+	if callout_id == combo_callout_id:
+		combo_callout.visible = false
 
 func _position_attack_hitbox() -> void:
 	var facing_offset := 1.35

@@ -26,11 +26,22 @@ godot --path .
 | Nut tap | O |
 | Headbutt | P |
 
+## Combos
+
+Chain attack buttons quickly to make Claire yell a random combo blurb:
+
+| Combo | Sequence |
+| --- | --- |
+| Clipboard Clobber | Punch, Kick |
+| Headfirst Grant | Kick, Headbutt |
+| Claire Protocol | Punch, Nut tap, Headbutt |
+| Facility Recalibration | Nut tap, Kick, Punch |
+
 ## Good First Files
 
 - `scenes/main.tscn`: the world, ground, player instance, lighting, and HUD label.
 - `scenes/agents/player/player.tscn`: the player nodes and animation library.
-- `scripts/agents/player/player.gd`: shared player movement, input checks, and state-machine wiring.
+- `scripts/agents/player/player.gd`: shared player movement, input checks, combo definitions, and state-machine wiring.
 - `scripts/agents/player/states/*.gd`: one file per player state.
 - `scenes/props/target_dummy.tscn`: the target dummy placed in the arena.
 - `scripts/props/target_dummy.gd`: dummy health, hit flash, knockback, and reset behavior.
