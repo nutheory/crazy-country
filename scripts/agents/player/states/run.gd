@@ -4,7 +4,7 @@ extends LimboState
 @export var animation: StringName
 
 func _update(delta: float) -> void:
-	agent.check_run_input()
+	agent.check_move_mode_input()
 	agent.check_jump_input()
 	agent.check_kick_input()
 	agent.check_punch_input()

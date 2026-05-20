@@ -2,6 +2,7 @@
 
 [ext_resource type="Texture2D" uid="uid://b2wwngsgjyuhc" path="res://assets/textures/world/dirt_ground_texture.jpg" id="1_o5qli"]
 [ext_resource type="PackedScene" uid="uid://3umb1h4yhoqg" path="res://scenes/agents/player/player.tscn" id="2_0wfyh"]
+[ext_resource type="PackedScene" path="res://scenes/props/target_dummy.tscn" id="3_dummy"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_0wfyh"]
 sky_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
@@ -27,6 +28,12 @@ uv1_triplanar = true
 [sub_resource type="BoxShape3D" id="BoxShape3D_jyhfs"]
 size = Vector3(50, 1, 10)
 
+[sub_resource type="LabelSettings" id="LabelSettings_controls"]
+font_size = 18
+font_color = Color(0.96, 0.92, 0.84, 1)
+outline_size = 4
+outline_color = Color(0.05, 0.04, 0.03, 0.9)
+
 [node name="Main" type="Node3D" unique_id=50028224]
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=798567687]
@@ -48,3 +55,18 @@ shape = SubResource("BoxShape3D_jyhfs")
 
 [node name="Player" parent="." unique_id=1217183391 instance=ExtResource("2_0wfyh")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.2536128, 2.263617, 4.5006104)
+
+[node name="TargetDummy" parent="." instance=ExtResource("3_dummy")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.7, 0.5, 1.15)
+
+[node name="HUD" type="CanvasLayer" parent="." unique_id=1248746639]
+
+[node name="ControlsHint" type="Label" parent="HUD" unique_id=1788228278]
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 520.0
+offset_bottom = 120.0
+text = "WASD move    Q run    L charge    Space jump
+U punch    I kick    O nut tap    P headbutt
+Try attacks on the dummy"
+label_settings = SubResource("LabelSettings_controls")
